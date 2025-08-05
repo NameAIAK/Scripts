@@ -1,0 +1,44 @@
+#说明：此脚本进行转录组分组差异基因分析，并获取GO通路信息
+#创建分析文件夹test
+mkdir test
+cd test
+#执行脚本
+Rscript ../RNAseqDEGS.R GSE188774 Hs Control Treat 3 2 3 5 ../01_Rawdata/GSE188774_readcount_genename.xls Pvalue 0 0.05
+# args[1] 项目名称：GSE188774
+# args[2] 数据库名称缩写：Hs/Mm
+# args[3] 对照组名称：Control
+# args[4] 治疗组/实验组名称：Treat
+# args[5] Control样本数：3
+# args[6] Control开始数据列：2
+# args[7] Treat样本数：3
+# args[8] Treat开始数据列：5
+# args[9] count文件：../01_Rawdata/GSE188774_readcount_genename.xls
+# args[10]  显著性采用的值Pvalue/FDR
+# args[11]  FC筛选值：0
+# args[12]  P筛选值：0.05
+
+#对基因修改进行保存;#此命令行将小鼠的基因名小写改成大写，便于与人基因取交集
+cat testGeneUP.txt| sed s/\//\n/g|sort -u |tr a-z A-Z> testGeneUP-unique.txt
+
+#挑选通路将基因保存在txt文件中
+#说明：此脚本将挑选基因进行分组展示（柱状图，分组检验）
+Rscript DisplayGenes.R GSE188774 test/GeneUP-unique.txt test/GSE188774_norm_counts.csv Control Treat 3 1 3 4 4 5
+# args[1] 项目名称：GSE188774
+# args[2] 数据库名称缩写：test/GeneUP-unique.txt
+# args[3] count文件 test/GSE188774_norm_counts.csv
+# args[4] 对照组名称：Control
+# args[5] 治疗组/实验组名称：Treat
+# args[6] Control样本数：3
+# args[7] Control开始数据列：1
+# args[8] Treat样本数：3
+# args[9] Treat开始数据列：4
+# args[10] 图的行数nrow：4
+# args[11]  图的列数ncol：5
+
+#说明：此脚本将ENTREZID转化成SYMBOL
+Rscript ENTREZID2SYMBOL.R GSE188774 Hs keggentrezid.txt
+# args[1] 项目名称：GSE188774
+# args[2] 数据库缩写：Hs
+# args[3] 包含ENTREZID的文件：keggentrezid.txt
+
+

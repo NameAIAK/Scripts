@@ -1,0 +1,229 @@
+
+
+id=S200040657_L01
+
+mkdir $id
+fastqc -t 50 -o ./$id ../$id'_*.fq.gz' 1>$id'_run.txt' 2>$id'_err.txt'
+
+for i in `ls ./`;do less $i | grep 'Failed to process file'| sort | sed 's/Failed to process file //g' > $i'_fail_fq.txt'; done
+ll $id_*.fq.gz | cut -f 12 -d ' ' |sed 's/*//g' |sort > fastqc_check/$id_all_fq.gz
+
+
+
+cp ../*_err.txt ./
+
+for i in `ls ./`;do less $i | grep 'Failed to process file'| sort | sed 's/Failed to process file //g' > $i'_fail_fq.txt'; done
+
+nohup python /home/meta/metagenomic/pipeline/pipe_metagenome.py -l /data/metagenomic/fq_list/20240613_fq.list -o /data/metagenomic//workspace/20240613_2 -r /home/meta/metagenomic/database/host/index/GRCH38.p14 1>20240613_run.txt 2>20240613_err.txt
+
+#物种热图hclust2.pycommunities information
+/home/meta/anaconda3/envs/graphlan/bin/hclust2.py -i 06_metaphlan_speciesCH.txt -o testhclust.png -l --dpi 150 --flabel_size 6 --slabel_size 6 --max_flabel_len 100 --image_size 16
+
+
+less 00_merged_abundance_table.txt | grep -v  k__Eukaryota | grep -v k__Bacteria  | grep -v k__Archaea> 00_merged_abundance_table_Virus.txt
+grep -E '(s__)|(clade_name)' 00_merged_abundance_table_Eukaryota.txt |grep -v 't__'|sed 's/|/;/g' > 00_merged_abundance_table_Eukaryota_s.txt
+tail +2 00_merged_abundance_table_Eukaryota_s.txt |sed 's/s__/ /' |cut -d ' ' -f 2 >  00_merged_abundance_table_Eukaryota_sCH.txt
+
+
+metaphlan2krona.py -p profile -k krona.out
+conda install krona -c bioconda -y
+ktImportText text.txt
+
+
+merge_vsc_tables.py -o OUT_dpmean.vsc.txt *.vsc.txt -g depth_of_coverage_mean
+
+kraken2-build --standard --threads 12 --db
+# 输入序列为fasta
+kraken2 --db kraken2_dbtest test.fna --report k2_report.txt --use-names >kraken2_anno.output 2>kraken2_anno.error
+
+# 输入序列为fastq (PE测序)
+kraken2 --db kraken2_dbtest test.fq --paired --report k2_report.txt --use-names --use-mpa-style>kraken2_anno.output 2>kraken2_anno.error
+
+
+kraken2 --db database --threads 20 --report ./test.report --output ./test.output --paired ../SRR13188906_1.fastq ../SRR13188906_2.fastq
+bracken -d database -i ./test.report -o ./test.S.bracken -w ./test.S.bracken.report -l S
+kreport2mpa.py -r test.S.bracken.report -o test.final.report
+
+
+
+kraken2 --db /home/meta/metagenomic/database/k2_virus/  --threads 56  --report TEST.report --output TEST.output  --paired ../02-ref_remove/V350092088_L03_100_CONTROL/V350092088_L03_100_CONTROL.unmap.1.fastq.gz ../02-ref_remove/V350092088_L03_100_CONTROL/V350092088_L03_100_CONTROL.unmap.2.fastq.gz
+
+kraken2-build --build --db k2_virus/ --threads 56
+bracken-build -d k2_virus/ -t 56
+
+
+
+
+(完整路径)/KrakenTools/combine_kreports.py -r report1 report2 report3 \ 
+-o combine_report.txt --display-headers \ 
+--sample-names sample1 sample2 sample3
+
+
+
+python kreport2krona.py
+
+-r/--report MYFILE.KREPORT........Kraken report file
+-o/--output MYFILE.KRONA..........Output Krona text file
+
+###krona
+kraken2 --db KRAKEN2DB --threads THREADNUM --report MYSAMPLE.KREPORT \
+    --paired SAMPLE_1.FASTA SAMPLE_2.FASTA > MYSAMPLE.KRAKEN2
+python kreport2krona.py -r MYSAMPLE.KREPORT -o MYSAMPLE.krona 
+ktImportText MYSAMPLE.krona -o MYSAMPLE.krona.html
+
+
+
+
+
+cat 0613.S.count.tsv.all.tmp| grep -v 'k__Archaea'|grep -v 'k__Eukaryota'|grep -v 'k__Bacteria' > 0613.S.count.tsv.Viruses.tmp
+cat 0613.S.count.tsv.all.tmp| grep -v 'k__Viruses'| grep -v 'k__Eukaryota'|grep -v 'k__Bacteria' > 0613.S.count.tsv.Archaea.tmp
+cat 0613.S.count.tsv.all.tmp| grep -v 'k__Viruses'| grep -v 'k__Archaea'|grep -v 'k__Bacteria' > 0613.S.count.tsv.Eukaryota.tmp
+cat 0613.S.count.tsv.all.tmp| grep -v 'k__Viruses'| grep -v 'k__Archaea'|grep -v 'k__Eukaryota' > 0613.S.count.tsv.Bacteria.tmp
+
+
+python ../crt-mod.py -i test1.fasta fasta -o test_anno.txt
+
+blastn -db /home/meta/metagenomic/database/index_virus/virus_blast -query test.fasta -outfmt 6 -out result.txt -perc_identity 80 -qcov_hsp_perc 80 -evalue 1e-5 -max_target_seqs 1 -t 50
+
+#噬菌体宿主预测
+python /home/meta/metagenomic/softs/CrisprOpenDB/CL_Interface.py -i test.fasta -n 30
+
+
+/home/meta/metagenomic/softs/ViWrap-1.3.0/ViWrap download --db_dir ./ViWrap_db  --conda_env_dir  /home/meta/anaconda3/envs/ViWrap
+wget https://data.gtdb.ecogenomic.org/releases/release214/214.0/auxillary_files/gtdbtk_r214_data.tar.gz
+wget https://portal.nersc.gov/cfs/m342/iphop/db/iPHoP.latest_rw.tar.gz
+
+ViWrap run --input_metagenome /path/to/Lake_01_assemblies.fasta \
+           --input_reads /path/to/Lake_01_T1_1.fastq,/path/to/Lake_01_T1_2.fastq,/path/to/Lake_01_T2_1.fastq,/path/to/Lake_01_T2_2.fastq \
+           --out_dir ./ViWrap_Lake_01_outdir \
+           --db_dir /path/to/ViWrap_db \
+           --identify_method vb \
+           --conda_env_dir /path/to/ViWrap_conda_environments
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+##############Metagenomic###############
+cd /home/meta/metagenomic/sampleinfo/
+python /home/meta/metagenomic/sampleinfo/GetFqList.py 
+
+mv fq.list /data/metagenomic/fq_list/20240613_fq.list
+
+20240613_fq.list
+#Sample	R1	R2
+V350092088_L03_100_CONTROL	/data/metagenomic/rawdata/20240613/V350092088_L03_100_1.fq.gz	/data/metagenomic/rawdata/20240613/V350092088_L03_100_2.fq.gz
+V350092088_L03_101_CONTROL	/data/metagenomic/rawdata/20240613/V350092088_L03_101_1.fq.gz	/data/metagenomic/rawdata/20240613/V350092088_L03_101_2.fq.gz
+
+
+命令行
+###去人源序列
+conda antivate metagenomic
+nohup python /home/meta/metagenomic/pipeline/pipe_metagenome.py -l /data/metagenomic/fq_list/20240613_fq.list -o /data/metagenomic//workspace/20240613 -r /home/meta/metagenomic/database/host/index/GRCH38.p14 1>20240613_rmhuman_run.txt 2>20240613_rmhuman_err.txt &
+###不去人源序列
+nohup python /home/meta/metagenomic/pipeline/pipe_metagenome.py -l /data/metagenomic/fq_list/20240613_fq.list -o /data/metagenomic//workspace/20240613 1>20240613_run.txt 2>20240613_err.txt &
+
+
+10-virus样本分组分析control/paziente
+
+
+##############Virome###############
+cd /data/metagenomic//workspace/20240613/04-megahit
+for i in `ls ./`;do /home/meta/metagenomic/softs/ViWrap-1.3.0/ViWrap run --input_metagenome $i/$i'.contigs_500.fa' --input_reads ../01-fastp_trim/$i/$i'_clean.1.fastq.gz',../01-fastp_trim/$i/$i'_clean.2.fastq.gz' --db_dir /data/metagenomic/ViWrap_db/ --identify_method vs --conda_env_dir /home/meta/anaconda3/envs/ViWrap --threads 50 --input_length_limit 5000 --out_dir ./$i/$i'_ViWrap';done
+
+#2个样本的测试
+for i in V350092088_L03_100_CONTROL V350092088_L03_101_CONTROL;do /home/meta/metagenomic/softs/ViWrap-1.3.0/ViWrap run --input_metagenome $i/$i'.contigs_500.fa' --input_reads ../01-fastp_trim/$i/$i'_clean.1.fastq.gz',../01-fastp_trim/$i/$i'_clean.2.fastq.gz' --db_dir /data/metagenomic/ViWrap_db/ --identify_method vs --conda_env_dir /home/meta/anaconda3/envs/ViWrap --threads 50 --input_length_limit 5000 --out_dir ./$i/$i'_ViWrap';done
+
+##############virus/virus_host序列拆分###############
+seqkit grep -f ../10-virus/map.id  > virus.fasta
+seqkit grep --invert-match -f ../10-virus/map.id  nucl_nonerude.fna > virus_host.fasta
+
+##############免疫网络###############
+1.识别并提取rawCRISPRs.fna
+conda activate crisprcasfinder
+nohup perl /home/meta/metagenomic/softs/CRISPRCasFinder/CRISPRCasFinder.pl -in virus_host.fasta -keep -so /home/meta/metagenomic/softs/CRISPRCasFinder/sel392v2.so -out CRISPRCasFinder_result -cpuM 50 -q &
+
+2.查看CRISPRCasFinder_result/TSV/Crisprs_REPORT.xls；筛选level=4的DR序列；手动整理DR.fa
+修改DR格式
+cat DR.fa | tr -d "\r" > newDR.fa
+
+3.提取spacers
+/home/meta/MetaCRAST/bin/MetaCRAST -p newDR.fa -i rawCRISPRs.fna -o spacers -d 3 -l 60 -c 0.9 -a 0.9
+
+4.构建vMAGs比对数据库索引,spacers比对
+conda activate metagenomic
+makeblastdb -dbtype nucl  -in virus.fasta -input_type fasta -parse_seqids -out vmags
+spacers比对到vMAGs
+blastn -task blastn-short -db vmags -query CD90finalSpacers.fa -outfmt 6 -out spacersmapv.out
+sed -i "1i query\tsubject\tidentity_percent\talignment length\tmismatches\tgap opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit score" spacersmapv.out
+python /home/meta/metagenomic/pipeline/pipe_script/blast_best.py spacersmapv.out spacersmapv_best.xls
+
+5.spacers比对到CRISPRS
+touch CRISPR.id
+复制CRISPRCasFinder_result/TSV/Crisprs_REPORT.xls	（Sequence_basename列）；写入CRISPR.id
+提取CRISPR.fasta
+seqtk subseq rawCRISPRs.fna CRISPR.id > CRISPR.fasta
+构建CRISPR比对数据库索引,spacers比对
+blastn -task blastn-short -db CRISPR -query CRISPR.fasta -outfmt 6 -qcov_hsp_perc 100 -out spacersmapcrisprs.out
+awk '{if($5<=2) print $0}' spacersmapcrisprs.out > spacersmapcrisprs.out.filt.txt
+sed -i "1i query\tsubject\tidentity_percent\talignment length\tmismatches\tgap opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit score" spacersmapcrisprs.out.filt.txt
+python /home/meta/metagenomic/pipeline/pipe_script/blast_best.py spacersmapcrisprs.out.filt.txt spacersmapcrisprs_best.xls
+
+6.添加anno
+virus.fasta添加anno
+blastn -db /home/meta/metagenomic/database/virus_blastn/virus_blastn -query  virus.fasta -perc_identity 80 -qcov_hsp_perc 80 -max_target_seqs 5 -num_threads 16 -evalue 1e-5 -outfmt 6 -out virus.map
+sed -i "1i query\tsubject\tidentity_percent\talignment length\tmismatches\tgap opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit score" virus.map
+python /home/meta/metagenomic/pipeline/pipe_script/blast_best.py virus.map virus_mapbest.xls
+python /home/meta/metagenomic/pipeline/pipe_script/merge2.py --nt /home/meta/metagenomic/database/virus_blastn/virus-blastn_anno.txt --i virus_mapbest.xls --o virus_mapbest_anno.xls
+
+virus_host.fasta添加anno
+blastn -db /data/metagenomic/virus_host -query  virus/virus_host.fasta -perc_identity 80 -qcov_hsp_perc 80 -max_target_seqs 5 -num_threads 50 -evalue 1e-5 -outfmt 6 -out mMags.map
+sed -i "1i query\tsubject\tidentity_percent\talignment length\tmismatches\tgap opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit score" mMags.map
+python /home/meta/metagenomic/pipeline/pipe_script/blast_best.py mMags.map mMags_mapbest.xls
+python /home/meta/metagenomic/pipeline/pipe_script/merge2.py --nt /data/metagenomic/baf_lineage.txt --i mMags_mapbest.xls --o mMags_mapbest_anno.xls
+
+7.结果整理合并
+spacersmapv_best.xls
+spacersmapcrisprs_best.xls
+virus_mapbest_anno.xls
+mMags_mapbest_anno.xls
+python /home/meta/metagenomic/pipeline/mianyi_result/immunity_result.py
+
+8.绘制免疫相关网络图
+
+
+######metagem##########
+
+bash metaGEM.sh -t fastp -l
+bash metaGEM.sh -t megahit -l
+bash metaGEM.sh -t crossMapSeries -l
+bash metaGEM.sh -t concoct -l
+bash metaGEM.sh -t metabat -l
+bash metaGEM.sh -t maxbin -l
+bash metaGEM.sh -t binRefine -l
+bash metaGEM.sh -t binReassemble -l
+bash metaGEM.sh -t extractProteinBins -l
+bash metaGEM.sh -t carveme -l
+bash metaGEM.sh -t memote -l
+bash metaGEM.sh -t modelVis -l
+bash metaGEM.sh -t organizeGEMs -l
+bash metaGEM.sh -t smetana -l
+
+
+
+bash metaGEM.sh -t qfilterVis -l
+bash metaGEM.sh -t assemblyVis -l 
+bash metaGEM.sh -t binningVis -l
+
+
+
+

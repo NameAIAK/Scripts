@@ -1,0 +1,155 @@
+# 将原始数据复制到 /data/metagenomic/rawdata/
+#登录meta账户
+cd /data/metagenomic/rawdata/
+#star 密码：123456；    meta 密码:meta2024
+sudo cp -r /media/star/Elements/HZP/GJ24190/ ./
+#修改文件权限
+sudo chown -R meta:meta GJ24190
+
+##############Metagenomic###############
+cd /home/meta/metagenomic/sampleinfo/
+python /home/meta/metagenomic/sampleinfo/GetFqList.py 
+mv fq.list /data/metagenomic/fq_list/20240613_fq.list
+#生成fq.list文件
+python /home/meta/metagenomic/sampleinfo/GetFqListV2.py /data/metagenomic/rawdata/250314/id.list  /data/metagenomic/rawdata/250314/Data/CleanData
+
+#20240613_fq.list   格式
+#Sample	R1	R2
+V350092088_L03_100_CONTROL	/data/metagenomic/rawdata/20240613/V350092088_L03_100_1.fq.gz	/data/metagenomic/rawdata/20240613/V350092088_L03_100_2.fq.gz
+V350092088_L03_101_CONTROL	/data/metagenomic/rawdata/20240613/V350092088_L03_101_1.fq.gz	/data/metagenomic/rawdata/20240613/V350092088_L03_101_2.fq.gz
+
+
+命令行
+###去人源序列
+conda antivate metagenomic
+cd /data/metagenomic/workspace/
+#第一次运行下列命令可能会让输入meta密码 #/home/meta/metagenomic/database/host/mm10_index/mm10  /home/meta/metagenomic/database/host/index/GRCH38.p14 
+python /home/meta/metagenomic/pipeline/pipe_metagenome.py -l /data/metagenomic/rawdata/yiyu25/Data/CleanData/fq.list -o /data/metagenomic/workspace/yiyu25_2/ -r /home/meta/metagenomic/database/host/mm10_index/mm10 1>yiyu25_rmhuman_run.txt 2>yiyu25_rmhuman_err.txt
+###不去人源序列
+nohup python /home/meta/metagenomic/pipeline/pipe_metagenome.py -l /data/metagenomic/fq_list/20240613_fq.list -o /data/metagenomic//workspace/20240613 1>20240613_run.txt 2>20240613_err.txt &
+
+
+10-virus样本分组分析control/paziente
+control
+# 合并多个样本的基因序列（蛋白、DNA）
+mkdir control
+cd /data/metagenomic//workspace/20240613/control
+cat ../05-prodigal/*control/*_prot.faa > control_prot.faa
+cat ../05-prodigal/*control/*_nucl.fna > control_nucl.fna
+
+# cd-hit 运行构建非冗余基因集（蛋白）
+cd-hit -i control_prot.faa -o control_prot_nonerude.faa -c 0.95 -T 50 -n 5 -d 0 -aS 0.9 -g 1 -sc 1 -sf 1 -M 0
+
+# 获取了非冗余基因名称列表，再通过seqtk把对应的非冗余基因集（DNA）序列挑选出来
+grep '>' control_prot_nonerude.faa|awk -F ' ' '{print $1}'|sed 's/>//g' > control_prot_nonerude.list
+seqtk subseq control_nucl.fna control_prot_nonerude.list > control_nucl_nonerude.fna
+
+bash /home/meta/metagenomic/pipeline/pipe_script/virus.sh control_nucl_nonerude.fna /home/meta/metagenomic/database/virus_blastn/virus_blastn ./
+
+
+paziente
+# 合并多个样本的基因序列（蛋白、DNA）
+mkdir paziente
+cd /data/metagenomic//workspace/20240613/paziente
+cat ../05-prodigal/*paziente/*_prot.faa > paziente_prot.faa
+cat ../05-prodigal/*paziente/*_nucl.fna > paziente_nucl.fna
+
+
+# cd-hit 运行构建非冗余基因集（蛋白）
+cd-hit -i paziente_prot.faa -o paziente_prot_nonerude.faa -c 0.95 -T 50 -n 5 -d 0 -aS 0.9 -g 1 -sc 1 -sf 1 -M 0
+
+# 获取了非冗余基因名称列表，再通过seqtk把对应的非冗余基因集（DNA）序列挑选出来
+grep '>' paziente_prot_nonerude.faa|awk -F ' ' '{print $1}'|sed 's/>//g' > paziente_prot_nonerude.list
+seqtk subseq paziente_nucl.fna paziente_prot_nonerude.list > paziente_nucl_nonerude.fna
+
+bash /home/meta/metagenomic/pipeline/pipe_script/virus.sh paziente_nucl_nonerude.fna /home/meta/metagenomic/database/virus_blastn/virus_blastn ./
+
+##############Virome###############
+vs
+cd /data/metagenomic//workspace/20240613/04-megahit
+for i in `ls ./`;do /home/meta/metagenomic/softs/ViWrap-1.3.0/ViWrap run --input_metagenome $i/$i'.contigs_500.fa' --input_reads ../01-fastp_trim/$i/$i'_clean.1.fastq.gz',../01-fastp_trim/$i/$i'_clean.2.fastq.gz' --db_dir /data/metagenomic/ViWrap_db/ --identify_method vs --conda_env_dir /home/meta/anaconda3/envs/ViWrap --threads 50 --input_length_limit 5000 --out_dir ./$i/$i'_ViWrap';done
+
+#2个样本的测试
+for i in V350092088_L03_100_CONTROL V350092088_L03_101_CONTROL;do /home/meta/metagenomic/softs/ViWrap-1.3.0/ViWrap run --input_metagenome $i/$i'.contigs_500.fa' --input_reads ../01-fastp_trim/$i/$i'_clean.1.fastq.gz',../01-fastp_trim/$i/$i'_clean.2.fastq.gz' --db_dir /data/metagenomic/ViWrap_db/ --identify_method vs --conda_env_dir /home/meta/anaconda3/envs/ViWrap --threads 50 --input_length_limit 5000 --out_dir ./$i/$i'_ViWrap';done
+
+
+vb
+for i in `ls ./`;do /home/meta/metagenomic/softs/ViWrap-1.3.0/ViWrap run --input_metagenome $i/$i'.contigs_500.fa' --input_reads /data/metagenomic/rawdata/20240827/$i/$i'.1.fastq.gz',/data/metagenomic/rawdata/20240827/$i/$i'.2.fastq.gz' --db_dir /data/metagenomic/ViWrap_db/ --identify_method vb --conda_env_dir /home/meta/anaconda3/envs/ViWrap --threads 50  --out_dir ../viwrap/$i'_ViWrap';done
+
+
+
+##############virus/virus_host序列拆分paziente###############
+seqkit grep -f map.id  paziente_nucl_nonerude.fna> virus.fasta
+seqkit grep --invert-match -f map.id  paziente_nucl_nonerude.fna > virus_host.fasta
+
+##############virus/virus_host序列拆分control###############
+seqkit grep -f map.id  control_nucl_nonerude.fna> virus.fasta
+seqkit grep --invert-match -f map.id  control_nucl_nonerude.fna > virus_host.fasta
+
+
+##############免疫网络###############
+1.识别并提取rawCRISPRs.fna
+conda activate crisprcasfinder
+nohup perl /home/meta/metagenomic/softs/CRISPRCasFinder/CRISPRCasFinder.pl -in virus_host.fasta -keep -so /home/meta/metagenomic/softs/CRISPRCasFinder/sel392v2.so -out CRISPRCasFinder_result -cpuM 50 -q &
+
+2.查看CRISPRCasFinder_result/TSV/Crisprs_REPORT.xls；筛选level=4的DR序列；手动整理DR.fa
+修改DR格式
+cat DR.fa | tr -d "\r" > newDR.fa
+
+3.提取spacers
+/home/meta/MetaCRAST/bin/MetaCRAST -p newDR.fa -i CRISPRCasFinder_result/rawCRISPRs.fna -o spacers -d 3 -l 60 -c 0.9 -a 0.9
+
+4.构建vMAGs比对数据库索引,spacers比对
+conda activate metagenomic
+makeblastdb -dbtype nucl  -in virus.fasta -input_type fasta -parse_seqids -out vmags
+spacers比对到vMAGs
+blastn -task blastn-short -db vmags -query spacers/totalSpacersCD90.fa -outfmt 6 -num_threads 50 -out spacersmapv.out
+sed -i "1i query\tsubject\tidentity_percent\talignment length\tmismatches\tgap opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit score" spacersmapv.out
+python /home/meta/metagenomic/pipeline/pipe_script/blast_best.py spacersmapv.out spacersmapv_best.xls
+
+5.spacers比对到CRISPRS
+touch CRISPR.id
+复制CRISPRCasFinder_result/TSV/Crisprs_REPORT.xls	（CRISPR_Id列）；写入CRISPR.id
+提取CRISPR.fasta
+seqtk subseq CRISPRCasFinder_result/rawCRISPRs.fna CRISPR.id > CRISPR.fasta
+构建CRISPR比对数据库索引,spacers比对
+makeblastdb -dbtype nucl  -in CRISPR.fasta -input_type fasta -parse_seqids -out CRISPR_index
+blastn -task blastn-short -db CRISPR_index -query spacers/totalSpacersCD90.fa -outfmt 6 -qcov_hsp_perc 100 -num_threads 50 -out spacersmapcrisprs.out
+awk '{if($5<=2) print $0}' spacersmapcrisprs.out > spacersmapcrisprs.out.filt.txt
+sed -i "1i query\tsubject\tidentity_percent\talignment length\tmismatches\tgap opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit score" spacersmapcrisprs.out.filt.txt
+python /home/meta/metagenomic/pipeline/pipe_script/blast_best.py spacersmapcrisprs.out.filt.txt spacersmapcrisprs_best.xls
+
+6.添加anno
+virus.fasta添加anno
+blastn -db /home/meta/metagenomic/database/virus_blastn/virus_blastn -query  virus.fasta -perc_identity 80 -qcov_hsp_perc 80 -max_target_seqs 5 -num_threads 50 -evalue 1e-5 -outfmt 6 -out virus.map
+sed -i "1i query\tsubject\tidentity_percent\talignment length\tmismatches\tgap opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit score" virus.map
+python /home/meta/metagenomic/pipeline/pipe_script/blast_best.py virus.map virus_mapbest.xls
+python /home/meta/metagenomic/pipeline/pipe_script/merge2.py --nt /home/meta/metagenomic/database/virus_blastn/virus-blastn_anno.txt --i virus_mapbest.xls --o virus_mapbest_anno.xls
+
+virus_host.fasta添加anno
+blastn -db /data/metagenomic/virus_host -query  virus_host.fasta -perc_identity 80 -qcov_hsp_perc 80 -max_target_seqs 5 -num_threads 50 -evalue 1e-5 -outfmt 6 -out mMags.map
+sed -i "1i query\tsubject\tidentity_percent\talignment length\tmismatches\tgap opens\tq_start\tq_end\ts_start\ts_end\tevalue\tbit score" mMags.map
+python /home/meta/metagenomic/pipeline/pipe_script/blast_best.py mMags.map mMags_mapbest.xls
+python /home/meta/metagenomic/pipeline/pipe_script/merge2.py --nt /data/metagenomic/baf_lineage.txt --i mMags_mapbest.xls --o mMags_mapbest_anno.xls
+
+7.结果整理合并
+spacersmapv_best.xls
+spacersmapcrisprs_best.xls
+virus_mapbest_anno.xls
+mMags_mapbest_anno.xls
+python /home/meta/metagenomic/pipeline/mianyi_result/immunity_result.py
+
+8.绘制免疫相关网络图
+
+
+
+
+vhip
+conda activate vhip
+seqkit split -i virus.fasta  --by-size-prefix 'virus:' -O 0828predictpart/virus_sequences/ -f
+seqkit split -i virus_host.fasta  --by-size-prefix 'virus_host:' -O 0828predictpart/host_sequences/ -f
+python /home/meta/metagenomic/softs/VirusHostInteractionPredictor/vhip.py 0828predictpart 
+
+
+
+

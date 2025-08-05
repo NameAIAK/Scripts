@@ -1,0 +1,99 @@
+bowtie2_index="/data/RNA/reference/bowtie2_mouse/mm10"
+gtf="/data/RNA/reference/gencode.vM19.annotation.gtf"
+SAMPLES = []
+with open('samples.txt', 'r') as file:
+    for line in file:
+        columns = line.strip()
+        SAMPLES.append(columns)
+rule all:
+    input:
+        expand("/data/snakemake/RNA-seq_up_mouse/QC/{sample}_R1_fastqc.zip",sample = SAMPLES),
+        expand("/data/snakemake/RNA-seq_up_mouse/QC/{sample}_R2_fastqc.zip",sample = SAMPLES),
+        expand("/data/snakemake/RNA-seq_up_mouse/trim_galore/{sample}_R1_val_1.fq.gz",sample = SAMPLES),
+        expand("/data/snakemake/RNA-seq_up_mouse/trim_galore/{sample}_R2_val_2.fq.gz",sample = SAMPLES),
+        expand("/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.sam",sample=SAMPLES),
+        expand("/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.bam",sample=SAMPLES),
+        expand("/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.bam.bai",sample=SAMPLES),
+        expand("/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.flagstat",sample=SAMPLES),
+        expand("/data/snakemake/RNA-seq_up_mouse/quantification/{sample}.txt",sample=SAMPLES),
+        expand("/data/snakemake/RNA-seq_up_mouse/quantification/{sample}_count.txt",sample=SAMPLES),
+        expand("/data/snakemake/RNA-seq_up_mouse/igvtools/{sample}.tdf",sample=SAMPLES)
+##质控
+rule fastqc:
+    input:
+        "/data/snakemake/RNA-seq_up_mouse/{sample}_R1.fq.gz",
+        "/data/snakemake/RNA-seq_up_mouse/{sample}_R2.fq.gz"
+    output:
+        "/data/snakemake/RNA-seq_up_mouse/QC/{sample}_R1_fastqc.zip",
+        "/data/snakemake/RNA-seq_up_mouse/QC/{sample}_R2_fastqc.zip"
+    shell:
+        """
+        fastqc -t 50 -o /data/snakemake/RNA-seq_up_mouse/QC/ {input[0]}>{output[0]}
+        fastqc -t 50 -o /data/snakemake/RNA-seq_up_mouse/QC/ {input[1]}>{output[1]}
+        """	
+##过滤
+rule trim_galore:
+    input:
+        "/data/snakemake/RNA-seq_up_mouse/{sample}_R1.fq.gz",
+        "/data/snakemake/RNA-seq_up_mouse/{sample}_R2.fq.gz"
+    output:
+        "/data/snakemake/RNA-seq_up_mouse/trim_galore/{sample}_R1_val_1.fq.gz",
+        "/data/snakemake/RNA-seq_up_mouse/trim_galore/{sample}_R2_val_2.fq.gz"
+    params:
+        dir="/data/snakemake/RNA-seq_up_mouse/trim_galore"
+    log:
+        "/data/snakemake/RNA-seq_up_mouse/trim_galore/trim_galore_{sample}.log"
+    shell:
+        "trim_galore --phred33 -q 20 --length 20 --stringency 3 --fastqc --paired --clip_R1 10 \
+        --clip_R2 10 -o {params[0]} {input[0]} {input[1]}>{log}"
+        
+##比对
+rule bowtie2:
+    input:
+        "/data/snakemake/RNA-seq_up_mouse/trim_galore/{sample}_R1_val_1.fq.gz",
+        "/data/snakemake/RNA-seq_up_mouse/trim_galore/{sample}_R2_val_2.fq.gz"
+    output:
+        "/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.sam"
+    shell:
+        "bowtie2 -x {bowtie2_index}  -1 {input[0]} -2 {input[1]}  -p 50 -S {output}"
+##sam转bam 建索引
+rule sam_to_bam:
+    input:
+        "/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.sam"
+    output:
+        "/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.bam",
+        "/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.bam.bai" 
+    shell:
+        "samtools sort {input} > {output[0]} -@ 50 && samtools index {output[0]} -@ 50"
+##统计
+rule flagstat:
+    input:
+        "/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.sam"
+    output:
+        "/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.flagstat"
+    shell:
+        "samtools flagstat -@ 3 {input} > {output}"
+##定量
+rule featureCounts:
+    input:
+        "/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.bam"
+    output:
+        "/data/snakemake/RNA-seq_up_mouse/quantification/{sample}.txt"
+    shell:
+        """
+        featureCounts -T 15 -p -t exon -g gene_id -a {gtf} -o {output} {input}
+        """
+##转tdf
+rule igvtools:
+    input:
+        "/data/snakemake/RNA-seq_up_mouse/bowtie2/{sample}.bam"
+    output:
+        "/data/snakemake/RNA-seq_up_mouse/igvtools/{sample}.tdf"
+    shell:
+        "igvtools count {input} {output} mm10.chrom.sizes"
+
+
+
+
+
+

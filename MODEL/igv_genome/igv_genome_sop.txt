@@ -1,0 +1,12 @@
+#path
+/home/star/anaconda3/envs/RNA-seq/share/igvtools-2.3.93-0/genomes/
+
+#生成ref.chrom.sizes
+samtools faidx ref.fa
+cut -f1,2 ref.fa.fai > ref.chrom.sizes
+#复制到igv/genomes下
+cp ref.chrom.sizes /home/star/anaconda3/envs/RNA-seq/share/igvtools-2.3.93-0/genomes/
+
+
+# 可视化
+igvtools count ./$batch/${i}.bam ./$batch/${i}.tdf mm10.chrom.sizes

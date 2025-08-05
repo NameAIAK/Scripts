@@ -1,0 +1,19 @@
+#######10X数据上游分析
+# 查找当前目录获取*R1*.gz和*R2*.gz文件的绝对路径
+find `pwd` -type f -name '*.fq.gz' > all.id.txt
+less all.id.txt  | cut -f 7 -d '/'|sed 's/_1.fq.gz//g'|sed 's/_2.fq.gz//g'|uniq > samples.txt
+
+# 对all.id.txt中的fastq.gz文件使用fastqc软件输出质控报告
+# -t 8表示8线程，-o ./qc表示输出至当前qc目录
+cat all.id.txt|xargs fastqc -t 8 -o ./qc
+
+# 批量重命名为cellranger推荐格式
+cat samples.txt | while read i ;do (mv /data/scRNA-seq/xc_6_20241218/rawdata/${i}/${i}_raw_1.fq.gz /data/scRNA-seq/xc_6_20241218/rawdata/${i}/${i}_S1_L001_R1_001.fastq.gz;mv /data/scRNA-seq/xc_6_20241218/rawdata/${i}/${i}_raw_2.fq.gz /data/scRNA-seq/xc_6_20241218/rawdata/${i}/${i}_S1_L001_R2_001.fastq.gz);done
+
+# 获取matrix
+cat samples.txt | while read i ;do cellranger count --id=$i --localcores=50  --transcriptome=/data/cellranger/refdata-gex-mm10-2020-A --fastqs=/data/scRNA-seq/xc_6_20241218/rawdata/$i --sample=$i --nosecondary --expect-cells=5000 ;done
+
+
+#######寻因
+cat samples.txt | while read i ;do  /data/xunyin/seeksoultools.1.2.0/bin/seeksoultools rna run --fq1 /data/scRNA-seq/xc_6_20241218/rawdata/${i}/${i}_S1_L001_R1_001.fastq.gz --fq2 /data/scRNA-seq/xc_6_20241218/rawdata/${i}/${i}_S1_L001_R2_001.fastq.gz --samplename ${i} --genomeDir /data/cellranger/refdata-gex-mm10-2020-A/star --gtf /data/cellranger/refdata-gex-mm10-2020-A/genes/genes.gtf --chemistry DDV2 --core 50 --include-introns --star_path /data/cellranger/cellranger-7.2.0/lib/bin/STAR;done
+
